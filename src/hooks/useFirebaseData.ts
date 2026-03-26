@@ -1,6 +1,4 @@
 import { useState, useEffect } from 'react';
-import { ref, onValue } from 'firebase/database';
-import { database } from '@/lib/firebase';
 
 export interface FarmData {
   temperature: number;
@@ -28,51 +26,39 @@ export const useFirebaseData = (path: string = 'sensorData') => {
   const [data, setData] = useState<FarmData>(DEFAULT_DATA);
   const [isConnected, setIsConnected] = useState(false);
   const [error, setError] = useState<string | null>(null);
+useEffect(() => {
+  const fetchData = async () => {
+    try {
+      const res = await fetch("http://localhost:8000/sensor-data");
+      const val = await res.json();
 
-  useEffect(() => {
-    const dataRef = ref(database, path);
+      setData({
+        temperature: val.temperature ?? 0,
+        humidity: val.humidity ?? 0,
+        soilMoisture: val.soilMoisture ?? 0,
+        fertilizerLevel: val.fertilizerLevel ?? 0,
+        pesticideLevel: val.pesticideLevel ?? 0,
+        robotOnline: val.robotOnline ?? false,
+        robotStatus: val.robotStatus ?? "offline",
+        batteryLevel: val.batteryLevel ?? 0,
+      });
 
-    const unsubscribe = onValue(
-      dataRef,
-      (snapshot) => {
-        if (snapshot.exists()) {
-          const val = snapshot.val();
-          setData({
-            temperature: val.temperature ?? DEFAULT_DATA.temperature,
-            humidity: val.humidity ?? DEFAULT_DATA.humidity,
-            soilMoisture: val.soilMoisture ?? DEFAULT_DATA.soilMoisture,
-            fertilizerLevel: val.fertilizerLevel ?? DEFAULT_DATA.fertilizerLevel,
-            pesticideLevel: val.pesticideLevel ?? DEFAULT_DATA.pesticideLevel,
-            robotOnline: val.robotOnline ?? DEFAULT_DATA.robotOnline,
-            robotStatus: val.robotStatus ?? DEFAULT_DATA.robotStatus,
-            batteryLevel: val.batteryLevel ?? DEFAULT_DATA.batteryLevel,
-          });
-          setIsConnected(true);
-          setError(null);
-        } else {
-          setData(DEFAULT_DATA);
-          setIsConnected(true);
-          setError('No data at path: ' + path);
-        }
-      },
-      (err) => {
-        console.error('Firebase read error:', err);
-        setError(err.message);
-        setIsConnected(false);
-      }
-    );
+      setIsConnected(true);
+      setError(null);
+    } catch (err: any) {
+      console.error("API error:", err);
+      setError(err.message);
+      setIsConnected(false);
+    }
+  };
 
-    // Monitor connection state
-    const connRef = ref(database, '.info/connected');
-    const connUnsub = onValue(connRef, (snap) => {
-      setIsConnected(snap.val() === true);
-    });
+  fetchData();
 
-    return () => {
-      unsubscribe();
-      connUnsub();
-    };
-  }, [path]);
+  // auto-refresh every 3 sec
+  const interval = setInterval(fetchData, 3000);
+
+  return () => clearInterval(interval);
+}, [path]);
 
   return { data, isConnected, error };
 };

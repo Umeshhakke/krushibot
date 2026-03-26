@@ -18,9 +18,42 @@ const ModesScreen = ({ currentMode, onModeChange }: ModesScreenProps) => {
     return en;
   };
 
-  const handleRobotCommand = (command: string) => {
-    console.log('Robot command:', command);
-    
+  const handleAutoMode = async (mode: 'auto' | 'manual') => {
+  onModeChange(mode);
+
+  try {
+    if (mode === 'auto') {
+      await fetch("http://localhost:8000/auto-start", {
+        method: "POST"
+      });
+    } else {
+      await fetch("http://localhost:8000/auto-stop", {
+        method: "POST"
+      });
+    }
+  } catch (err) {
+    console.error("Auto mode error:", err);
+  }
+};
+
+const handleRobotCommand = async (command: string) => {
+  console.log('Robot command:', command);
+
+  try {
+    const res = await fetch("http://localhost:8000/control", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ command }),
+    });
+
+    const data = await res.json();
+    console.log("Backend response:", data);
+  } catch (err) {
+    console.error("Error sending command:", err);
+  }
+
     // Show toast for important commands
     if (command === 'emergency-stop') {
       toast({
@@ -45,7 +78,7 @@ const ModesScreen = ({ currentMode, onModeChange }: ModesScreenProps) => {
       {/* Mode Selection Tabs */}
       <div className="flex gap-2 p-1 bg-muted rounded-2xl">
         <button
-          onClick={() => onModeChange('auto')}
+          onClick={() => handleAutoMode('auto')}
           className={cn(
             'flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-medium transition-all',
             currentMode === 'auto' 
@@ -57,7 +90,7 @@ const ModesScreen = ({ currentMode, onModeChange }: ModesScreenProps) => {
           {t('automaticMode')}
         </button>
         <button
-          onClick={() => onModeChange('manual')}
+          onClick={() => handleAutoMode('manual')}
           className={cn(
             'flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-medium transition-all',
             currentMode === 'manual' 
